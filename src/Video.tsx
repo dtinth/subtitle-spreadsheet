@@ -12,7 +12,7 @@ const $youtubeId = computed([$sheetData], (sheetData) => {
   if (!sheetData) return;
   for (const [key, value] of sheetData.values) {
     if (key === "youtube") {
-      return value;
+      return String(value);
     }
   }
 });
