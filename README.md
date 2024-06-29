@@ -1,30 +1,9 @@
-# React + TypeScript + Vite
+# subtitle-spreadsheet
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A web-based subtitle editor built using Google Apps Script and React that simplifies subtitle creation for amateurs.
 
-Currently, two official plugins are available:
+![](https://im.dt.in.th/ipfs/bafybeibnluvrqs6kzotodhnlcckayz7uwqhny6nw3kfhn2u4qabvpr2mge/image.webp)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
-
-- Configure the top-level `parserOptions` property like this:
-
-```js
-export default {
-  // other rules...
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-    project: ['./tsconfig.json', './tsconfig.node.json'],
-    tsconfigRootDir: __dirname,
-  },
-}
-```
-
-- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
-- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+- **Integrated with Google Sheets:** Leverages the familiarity and collaboration features of Google Sheets.
+- **Real-time Preview:** The sidebar displays a YouTube video embedded alongside your subtitles, allowing you to preview your work.
+- **Event-based Editing:** Unlike professional subtitle editors where you have to time both the start and end of each subtitle, this editor only requires you to set the start time. The end time is automatically calculated based on the start time of the next subtitle, thus streamlining the workflow.
