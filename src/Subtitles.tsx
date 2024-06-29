@@ -26,7 +26,7 @@ export function EventVisualizer() {
     $hoverTime.set(Math.round((y / heightPerSecond) * 10) / 10);
   };
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "g") {
+    if (e.key === "s") {
       const player = $player.get();
       player?.seekTo($hoverTime.get(), true);
       e.preventDefault();
@@ -292,10 +292,11 @@ export function EditorHint() {
     ["Space", "Play/Pause"],
     ["J/→/↓", "Forward"],
     ["K/←/↑", "Backward"],
-    ["G", "Go to hover time"],
-    ["C", "Insert hover time"],
-    ["N", "Insert current time"],
+    ["S", "Seek to cursor"],
+    ["C", "Insert cursor time"],
+    ["N", "Insert time at playhead"],
     ["F", "Focus subtitle cell"],
+    ["X", "Fix time to cursor"],
     ["R", "Reload from sheet"],
   ];
   return (
