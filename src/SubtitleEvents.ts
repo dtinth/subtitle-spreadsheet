@@ -16,7 +16,7 @@ export const $subtitleEvents = computed(
       const [key, value] = rowValues;
       if (!key || !String(key).match(/^[\d.]+$/)) continue;
       const time = +key;
-      const text = value.trim() || "";
+      const text = String(value).trim() || "";
       const row = sheetData.row + i;
       out.push({ time, text, row, duration: 0 });
     }
