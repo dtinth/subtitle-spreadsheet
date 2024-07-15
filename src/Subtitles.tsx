@@ -1,9 +1,9 @@
 import { useStore } from "@nanostores/react";
-import { Box, Code, Flex, Text } from "@radix-ui/themes";
+import { Box, Code, Flex, Text, TextArea } from "@radix-ui/themes";
 import { getOrCreate } from "@thai/get-or-create";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { $waveform } from "./AudioState";
-import { $focus, $hoverIndex, $hoverTime } from "./EditorState";
+import { $editingIndex, $focus, $hoverIndex, $hoverTime } from "./EditorState";
 import { ScrollContainer } from "./ScrollContainer";
 import { $subtitleEvents, SubtitleEvent } from "./SubtitleEvents";
 import { $currentTime, $duration, $player } from "./YouTubePlayerState";
@@ -80,20 +80,7 @@ export function EventVisualizer() {
         const before = sheetData.values[rowIndex][0];
         const after = +$hoverTime.get().toFixed(1);
         if (before !== after) {
-          const newSheetData = {
-            ...sheetData,
-            values: sheetData.values.map((row, i) => {
-              if (i === rowIndex) {
-                return [after, row[1]];
-              }
-              return row;
-            }),
-          };
-          $sheetData.set(newSheetData);
-          parent.postMessage(
-            { updateCell: { row, column: 1, from: before, to: after } },
-            "*"
-          );
+          updateCell(row, 1, before, after);
         }
       }
     }
@@ -101,6 +88,12 @@ export function EventVisualizer() {
       if (!$sheetDataLoading.get()) {
         $sheetDataLoading.set(true);
         parent.postMessage({ reload: {} }, "*");
+      }
+    }
+    if (e.key === "Enter") {
+      const index = $hoverIndex.get();
+      if (index > -1) {
+        $editingIndex.set(index);
       }
     }
   };
@@ -124,7 +117,11 @@ export function EventVisualizer() {
       onDragOver={(e) => e.preventDefault()}
       onDrop={onDrop}
     >
-      <ScrollContainer height={height} onMouseMove={onMouseMove}>
+      <ScrollContainer
+        id="main-timeline"
+        height={height}
+        onMouseMove={onMouseMove}
+      >
         {(scrollTop, viewportHeight) => (
           <>
             <WaveformVisualizer
@@ -141,7 +138,107 @@ export function EventVisualizer() {
           </>
         )}
       </ScrollContainer>
+      <SubtitleTextEditorContainer />
     </div>
+  );
+}
+
+function updateCell(
+  row: number,
+  column: number,
+  from: number | string,
+  to: number | string
+) {
+  const sheetData = $sheetData.get()!;
+  const rowIndex = row - sheetData.row;
+  const columnIndex = column - sheetData.column;
+  const newSheetData = {
+    ...sheetData,
+    values: sheetData.values.map((row, i) => {
+      if (i === rowIndex) {
+        return row.map((cell, j) => {
+          if (j === columnIndex) {
+            return to;
+          }
+          return cell;
+        });
+      }
+      return row;
+    }),
+  };
+  $sheetData.set(newSheetData);
+  parent.postMessage({ updateCell: { row, column, from, to } }, "*");
+}
+
+function SubtitleTextEditorContainer() {
+  const editingIndex = useStore($editingIndex);
+  if (!editingIndex) return null;
+  return <SubtitleTextEditor index={editingIndex} key={editingIndex} />;
+}
+function SubtitleTextEditor(props: { index: number }) {
+  const subtitleEvents = useStore($subtitleEvents);
+  const event = subtitleEvents[props.index];
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    e.stopPropagation();
+    const focusTimeline = () => {
+      const timelineElement = document.getElementById(
+        "main-timeline"
+      ) as HTMLElement | null;
+      timelineElement?.focus();
+    };
+    if (e.key === "Escape") {
+      $editingIndex.set(undefined);
+      focusTimeline();
+      e.preventDefault();
+    }
+    if (
+      e.key === "Enter" &&
+      !e.shiftKey &&
+      !e.ctrlKey &&
+      !e.metaKey &&
+      !e.altKey
+    ) {
+      updateCell(event.row, 2, event.text, textareaRef.current!.value);
+      $editingIndex.set(undefined);
+      focusTimeline();
+      e.preventDefault();
+    }
+    // Pressing option-enter will insert a newline
+    const textarea = textareaRef.current;
+    if (e.key === "Enter" && (e.metaKey || e.altKey) && textarea) {
+      const value = textarea.value;
+      const start = textarea.selectionStart || 0;
+      const end = textarea.selectionEnd || 0;
+      const newValue = `${value.slice(0, start)}\n${value.slice(end)}`;
+      textarea.value = newValue;
+      textarea.setSelectionRange(start + 1, start + 1);
+      e.preventDefault();
+    }
+  };
+  useEffect(() => {
+    setTimeout(() => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      textarea.focus();
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    });
+  }, []);
+  return (
+    <Box
+      position="absolute"
+      top="0"
+      left="0"
+      right="0"
+      style={{ zIndex: 100 }}
+      p="2"
+    >
+      <TextArea
+        defaultValue={event.text}
+        onKeyDown={onKeyDown}
+        ref={textareaRef}
+      />
+    </Box>
   );
 }
 
@@ -180,7 +277,9 @@ function SubtitleEventItem(props: SubtitleEventItem) {
                 : { borderTop: "1px solid var(--gray-a6)" }
             }
           >
-            <Text size="1">{props.event.text}</Text>
+            <Text size="1" style={{ whiteSpace: "pre-line" }}>
+              <div style={{ lineHeight: 1.4 }}>{props.event.text}</div>
+            </Text>
           </Box>
         )}
       </ActiveIndexConnector>
@@ -207,7 +306,11 @@ export function SubtitlePreview() {
     (event) =>
       event.time <= currentTime && event.time + event.duration > currentTime
   );
-  return <Text size="1">{currentEvent?.text}</Text>;
+  return (
+    <Text size="1" style={{ whiteSpace: "pre-line" }}>
+      {currentEvent?.text}
+    </Text>
+  );
 }
 
 interface CurrentTimeLine {

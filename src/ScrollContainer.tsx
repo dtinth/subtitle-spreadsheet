@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 export interface ScrollContainer {
+  id: string;
   height: number;
   onMouseMove: (y: number) => void;
   children: (scrollTop: number, height: number) => React.ReactNode;
@@ -14,6 +15,7 @@ export function ScrollContainer(props: ScrollContainer) {
   }, []);
   return (
     <div
+      id={props.id}
       className="with-focus"
       style={{
         position: "absolute",

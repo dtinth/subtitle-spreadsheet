@@ -4,6 +4,7 @@ import { $subtitleEvents } from "./SubtitleEvents";
 export const $focus = atom(false);
 export const $hoverTime = atom(0);
 
+export const $editingIndex = atom<number | undefined>(undefined);
 export const $hoverIndex = computed(
   [$subtitleEvents, $hoverTime],
   (subtitleEvents, hoverTime) => {
