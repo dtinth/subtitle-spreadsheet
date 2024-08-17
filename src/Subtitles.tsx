@@ -2,7 +2,7 @@ import { useStore } from "@nanostores/react";
 import { Box, Code, Flex, Text, TextArea } from "@radix-ui/themes";
 import { getOrCreate } from "@thai/get-or-create";
 import { useEffect, useMemo, useRef } from "react";
-import { $waveform } from "./AudioState";
+import { $rawAsrHint, $waveform } from "./AudioState";
 import { $editingIndex, $focus, $hoverIndex, $hoverTime } from "./EditorState";
 import { ScrollContainer } from "./ScrollContainer";
 import { $subtitleEvents, SubtitleEvent } from "./SubtitleEvents";
@@ -108,6 +108,14 @@ export function EventVisualizer() {
       return;
     }
     $waveform.set(json.waveform);
+    if (Array.isArray(json.words)) {
+      $rawAsrHint.set(
+        json.words.map(([time, word]: [number, string]) => ({
+          time,
+          text: word,
+        }))
+      );
+    }
   };
   return (
     <div
@@ -125,6 +133,11 @@ export function EventVisualizer() {
         {(scrollTop, viewportHeight) => (
           <>
             <WaveformVisualizer
+              top={scrollTop}
+              height={viewportHeight}
+              heightPerSecond={heightPerSecond}
+            />
+            <AsrHintVisualizer
               top={scrollTop}
               height={viewportHeight}
               heightPerSecond={heightPerSecond}
@@ -456,4 +469,40 @@ function WaveformVisualizer(props: WaveformVisualizer) {
       }}
     />
   ));
+}
+
+interface AsrHintVisualizer {
+  top: number;
+  height: number;
+  heightPerSecond: number;
+}
+function AsrHintVisualizer(props: AsrHintVisualizer) {
+  const rawAsrHint = useStore($rawAsrHint);
+  const minTime = (props.top - props.height / 2) / props.heightPerSecond;
+  const maxTime = (props.top + props.height * 1.5) / props.heightPerSecond;
+  const hints: React.ReactNode[] = [];
+  for (const [i, hint] of rawAsrHint.entries()) {
+    if (hint.time < minTime || hint.time > maxTime) continue;
+    const top = Math.round(hint.time * props.heightPerSecond);
+    hints.push(
+      <div
+        key={hint.time}
+        style={{
+          position: "absolute",
+          top: top,
+          width: "50%",
+          right: (4 - (i % 5)) * 8 + "%",
+          height: 0,
+          color: "#0008",
+          fontSize: "9px",
+          textAlign: "right",
+          display: "flex",
+          justifyContent: "flex-end",
+        }}
+      >
+        <div style={{ borderTop: "1px solid #0004" }}>{hint.text}</div>
+      </div>
+    );
+  }
+  return <>{hints}</>;
 }
