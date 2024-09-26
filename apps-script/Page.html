@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top" />
+  </head>
+  <body>
+    <iframe
+      id="core"
+      style="
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border: 0;
+      "
+    ></iframe>
+    <script>
+      let sheetData;
+      let editorUrl;
+
+      let core = document.getElementById("core");
+      function onSheetData(result) {
+        sheetData = result;
+        if (core.contentWindow) {
+          core.contentWindow.postMessage(
+            { sheetDataLoaded: { sheetData } },
+            "*"
+          );
+        }
+        for (const [key, value] of result.values) {
+          if (key === "editorUrl") {
+            if (value !== editorUrl) {
+              editorUrl = value;
+              core.src = editorUrl;
+            }
+          }
+        }
+        if (!editorUrl) {
+          editorUrl = "https://subtitle-spreadsheet.vercel.app/";
+          core.src = editorUrl;
+        }
+      }
+
+      window.addEventListener("message", (e) => {
+        if (e.source === core.contentWindow) {
+          let payload;
+          if ((payload = e.data.ready)) {
+            e.source.postMessage({ sheetDataLoaded: { sheetData } }, "*");
+          } else if ((payload = e.data.selectCell)) {
+            google.script.run.selectCell(payload.row, payload.column);
+          } else if ((payload = e.data.insertTime)) {
+            google.script.run.insertTime(payload.time);
+          } else if ((payload = e.data.createTime)) {
+            google.script.run.createTime(payload.row, payload.time);
+          } else if ((payload = e.data.updateCell)) {
+            google.script.run
+              .withSuccessHandler((result) => {
+                e.source.postMessage(
+                  { updateCellResult: { result, id: payload.id } },
+                  "*"
+                );
+              })
+              .updateCell(
+                payload.row,
+                payload.column,
+                payload.from,
+                payload.to
+              );
+          } else if ((payload = e.data.reload)) {
+            google.script.run
+              .withSuccessHandler(onSheetData)
+              .getCurrentSheetData();
+          }
+        }
+      });
+
+      google.script.run.withSuccessHandler(onSheetData).getCurrentSheetData();
+    </script>
+  </body>
+</html>

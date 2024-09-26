@@ -84,6 +84,23 @@ export function EventVisualizer() {
         }
       }
     }
+    if (e.key === "t") {
+      const subtitleEvents = $subtitleEvents.get();
+      const hoverTime = $hoverTime.get();
+      let insertBefore = -1;
+      let insertBeforeIndex = -1;
+      for (let i = 1; i < subtitleEvents.length; i++) {
+        if (subtitleEvents[i].time > hoverTime) {
+          insertBefore = subtitleEvents[i].row;
+          insertBeforeIndex = i;
+          break;
+        }
+      }
+      if (insertBefore !== -1) {
+        insertNewRow(insertBefore, hoverTime);
+        $editingIndex.set(insertBeforeIndex);
+      }
+    }
     if (e.key === "r") {
       if (!$sheetDataLoading.get()) {
         $sheetDataLoading.set(true);
@@ -181,6 +198,21 @@ function updateCell(
   };
   $sheetData.set(newSheetData);
   parent.postMessage({ updateCell: { row, column, from, to } }, "*");
+}
+
+function insertNewRow(row: number, time: number) {
+  const sheetData = $sheetData.get()!;
+  const rowIndex = row - sheetData.row;
+  const newSheetData = {
+    ...sheetData,
+    values: [
+      ...sheetData.values.slice(0, rowIndex),
+      [time, ""],
+      ...sheetData.values.slice(rowIndex),
+    ],
+  };
+  $sheetData.set(newSheetData);
+  parent.postMessage({ createTime: { row, time } }, "*");
 }
 
 function SubtitleTextEditorContainer() {
@@ -410,6 +442,7 @@ export function EditorHint() {
     ["K/←/↑", "Backward"],
     ["S", "Seek to cursor"],
     ["C", "Insert cursor time"],
+    ["T", "Create new row at time"],
     ["N", "Insert time at playhead"],
     ["F", "Focus subtitle cell"],
     ["X", "Fix time to cursor"],
@@ -417,7 +450,7 @@ export function EditorHint() {
   ];
   return (
     <>
-      <Flex gap="1" wrap="wrap">
+      <Flex gapX="1" wrap="wrap" style={{ fontSize: "0.7em" }}>
         {shortcuts.map(([key, description]) => (
           <Text key={key}>
             <Code>{key}</Code> {description}
