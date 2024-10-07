@@ -109,11 +109,12 @@ function insertTime(t) {
   sheet.setCurrentCell(sheet.getRange(row + 1, 1));
 }
 
-function createTime(rowNumber, timeValue) {
+function createTime(rowNumber, timeValue, text) {
   var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = spreadsheet.getActiveSheet();
   sheet.insertRowBefore(rowNumber);
   sheet.getRange(rowNumber, 1).setValue(timeValue);
+  sheet.getRange(rowNumber, 2).setValue(text || "");
   sheet.getRange(rowNumber, 1).activate();
   return true;
 }

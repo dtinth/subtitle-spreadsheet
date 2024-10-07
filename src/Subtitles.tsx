@@ -3,11 +3,28 @@ import { Box, Code, Flex, Text, TextArea } from "@radix-ui/themes";
 import { getOrCreate } from "@thai/get-or-create";
 import { useEffect, useMemo, useRef } from "react";
 import { $rawAsrHint, $waveform } from "./AudioState";
-import { $editingIndex, $focus, $hoverIndex, $hoverTime } from "./EditorState";
+import {
+  $autoScroll,
+  $editingIndex,
+  $focus,
+  $hoverIndex,
+  $hoverTime,
+} from "./EditorState";
 import { ScrollContainer } from "./ScrollContainer";
 import { $subtitleEvents, SubtitleEvent } from "./SubtitleEvents";
 import { $currentTime, $duration, $player } from "./YouTubePlayerState";
 import { $sheetData, $sheetDataLoading } from "./sheetData";
+
+function updateEventTimeToHover(index: number) {
+  const { row } = $subtitleEvents.get()[index];
+  const sheetData = $sheetData.get()!;
+  const rowIndex = row - sheetData.row;
+  const before = sheetData.values[rowIndex][0];
+  const after = +$hoverTime.get().toFixed(1);
+  if (before !== after) {
+    updateCell(row, 1, before, after);
+  }
+}
 
 export function EventVisualizer() {
   const subtitleEvents = useStore($subtitleEvents);
@@ -74,14 +91,25 @@ export function EventVisualizer() {
     if (e.key === "x") {
       const index = $hoverIndex.get();
       if (index > -1) {
-        const { row } = $subtitleEvents.get()[index];
-        const sheetData = $sheetData.get()!;
-        const rowIndex = row - sheetData.row;
-        const before = sheetData.values[rowIndex][0];
-        const after = +$hoverTime.get().toFixed(1);
-        if (before !== after) {
-          updateCell(row, 1, before, after);
-        }
+        updateEventTimeToHover(index);
+      }
+    }
+    if (e.key === "u") {
+      const time = $hoverTime.get();
+      const index = $subtitleEvents
+        .get()
+        .findIndex((event) => event.time >= time);
+      if (index > -1) {
+        updateEventTimeToHover(index);
+      }
+    }
+    if (e.key === "d") {
+      const time = $hoverTime.get();
+      const index = $subtitleEvents
+        .get()
+        .findLastIndex((event) => event.time <= time);
+      if (index > -1) {
+        updateEventTimeToHover(index);
       }
     }
     if (e.key === "t") {
@@ -97,7 +125,7 @@ export function EventVisualizer() {
         }
       }
       if (insertBefore !== -1) {
-        insertNewRow(insertBefore, hoverTime);
+        insertNewRow(insertBefore, hoverTime, "");
         $editingIndex.set(insertBeforeIndex);
       }
     }
@@ -106,6 +134,9 @@ export function EventVisualizer() {
         $sheetDataLoading.set(true);
         parent.postMessage({ reload: {} }, "*");
       }
+    }
+    if (e.key === "a") {
+      $autoScroll.set(!$autoScroll.get());
     }
     if (e.key === "Enter") {
       const index = $hoverIndex.get();
@@ -200,19 +231,19 @@ function updateCell(
   parent.postMessage({ updateCell: { row, column, from, to } }, "*");
 }
 
-function insertNewRow(row: number, time: number) {
+function insertNewRow(row: number, time: number, text: string) {
   const sheetData = $sheetData.get()!;
   const rowIndex = row - sheetData.row;
   const newSheetData = {
     ...sheetData,
     values: [
       ...sheetData.values.slice(0, rowIndex),
-      [time, ""],
+      [time, text],
       ...sheetData.values.slice(rowIndex),
     ],
   };
   $sheetData.set(newSheetData);
-  parent.postMessage({ createTime: { row, time } }, "*");
+  parent.postMessage({ createTime: { row, time, text } }, "*");
 }
 
 function SubtitleTextEditorContainer() {
@@ -237,20 +268,33 @@ function SubtitleTextEditor(props: { index: number }) {
       focusTimeline();
       e.preventDefault();
     }
-    if (
-      e.key === "Enter" &&
-      !e.shiftKey &&
-      !e.ctrlKey &&
-      !e.metaKey &&
-      !e.altKey
-    ) {
-      updateCell(event.row, 2, event.text, textareaRef.current!.value);
+    const textarea = textareaRef.current!;
+    if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.altKey) {
+      let splitted = false;
+      if (e.metaKey && textarea.selectionStart === textarea.selectionEnd) {
+        const textBefore = textarea.value
+          .slice(0, textarea.selectionStart)
+          .trim();
+        const textAfter = textarea.value.slice(textarea.selectionEnd).trim();
+        if (textBefore.length > 0 && textAfter.length > 0) {
+          updateCell(event.row, 2, event.text, textBefore);
+          const time =
+            event.time +
+            event.duration *
+              (textBefore.length / (textBefore.length + textAfter.length));
+          insertNewRow(event.row + 1, +time.toFixed(1), textAfter);
+          splitted = true;
+        }
+      }
+      if (!splitted) {
+        updateCell(event.row, 2, event.text, textarea.value.trim());
+      }
       $editingIndex.set(undefined);
       focusTimeline();
       e.preventDefault();
+      return;
     }
     // Pressing option-enter will insert a newline
-    const textarea = textareaRef.current;
     if (e.key === "Enter" && (e.metaKey || e.altKey) && textarea) {
       const value = textarea.value;
       const start = textarea.selectionStart || 0;
@@ -364,8 +408,17 @@ interface CurrentTimeLine {
 function CurrentTimeLine(props: CurrentTimeLine) {
   const currentTime = useStore($currentTime);
   const top = Math.round(currentTime * props.heightPerSecond);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if ($autoScroll.get() && ref.current) {
+      ref.current.scrollIntoView({
+        block: "center",
+      });
+    }
+  }, [currentTime]);
   return (
     <div
+      ref={ref}
       style={{
         position: "absolute",
         top: top,
@@ -433,6 +486,7 @@ function HoverLine(props: HoverLine) {
 
 export function EditorHint() {
   const focus = useStore($focus);
+  const autoScroll = useStore($autoScroll);
   if (!focus) {
     return <>Focus on the timeline to activate keyboard shortcuts.</>;
   }
@@ -446,11 +500,14 @@ export function EditorHint() {
     ["N", "Insert time at playhead"],
     ["F", "Focus subtitle cell"],
     ["X", "Fix time to cursor"],
+    ["U", "Shift time below up"],
+    ["D", "Shift time above down"],
     ["R", "Reload from sheet"],
+    ["A", autoScroll ? `Disable auto-scroll` : `Enable auto-scroll`],
   ];
   return (
     <>
-      <Flex gapX="1" wrap="wrap" style={{ fontSize: "0.7em" }}>
+      <Flex gapX="1" wrap="wrap" style={{ fontSize: "0.6em" }}>
         {shortcuts.map(([key, description]) => (
           <Text key={key}>
             <Code>{key}</Code> {description}

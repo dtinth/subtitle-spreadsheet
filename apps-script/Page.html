@@ -52,7 +52,11 @@
           } else if ((payload = e.data.insertTime)) {
             google.script.run.insertTime(payload.time);
           } else if ((payload = e.data.createTime)) {
-            google.script.run.createTime(payload.row, payload.time);
+            google.script.run.createTime(
+              payload.row,
+              payload.time,
+              payload.text || ""
+            );
           } else if ((payload = e.data.updateCell)) {
             google.script.run
               .withSuccessHandler((result) => {
